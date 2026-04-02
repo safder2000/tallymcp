@@ -23,6 +23,20 @@
             }
         },
         {
+            "name": "list-of-companies",
+            "input": [],
+            "output": {
+                "datatype": "array",
+                "fields": [
+                    {
+                        "name": "name",
+                        "datatype": "string",
+                        "identifier": "F01"
+                    }
+                ]
+            }
+        },
+        {
             "name": "chart-of-accounts",
             "input": [],
             "output": {

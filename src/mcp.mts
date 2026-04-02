@@ -38,7 +38,7 @@ export async function registerMcpServer(): Promise<McpServer> {
     'list-master',
     {
       title: 'List Masters',
-      description: `fetches list of masters from Tally Prime collection e.g. group, ledger, vouchertype, unit, godown, stockgroup, stockitem, costcategory, costcentre, attendancetype, company, currency, gstin, gstclassification returns output in tab separated format. IMPORTANT for collection=company: omit targetCompany entirely to list ALL companies in Tally; if you pass targetCompany, Tally locks to that company first and the Company collection usually returns only that one row—so discovery of names requires no targetCompany.`,
+      description: `fetches list of masters from Tally Prime collection e.g. group, ledger, vouchertype, unit, godown, stockgroup, stockitem, costcategory, costcentre, attendancetype, company, currency, gstin, gstclassification returns output in tab separated format. IMPORTANT for collection=company with NO targetCompany: the server asks Tally for the native "List of Companies" export (every company in the data path), not only the company you have open—omit targetCompany for full discovery. If you pass targetCompany with collection=company, behaviour is scoped to that company.`,
       inputSchema: {
         targetCompany: z.string().optional().describe('Company context for this export. Omit for Tally default (whatever is open). For collection=company: OMIT this field to get every company name; if set, you often get only that company. For ledger/group/etc., set when querying a specific company.'),
         collection: z.string(z.enum(['group', 'ledger', 'vouchertype', 'unit', 'godown', 'stockgroup', 'stockitem', 'costcategory', 'costcentre', 'attendancetype', 'company', 'currency', 'gstin', 'gstclassification']))
@@ -49,11 +49,23 @@ export async function registerMcpServer(): Promise<McpServer> {
       }
     },
     async (args) => {
-      let inputParams = new Map([['collection', args.collection]]);
+      let inputParams = new Map<string, string>([['collection', args.collection]]);
       if (args.targetCompany) {
         inputParams.set('targetCompany', args.targetCompany);
       }
-      const resp = await handlePull('list-master', inputParams);
+      let resp =
+        args.collection === 'company' && !args.targetCompany
+          ? await handlePull('list-of-companies', new Map())
+          : await handlePull('list-master', inputParams);
+      const fallbackCompanyList =
+        args.collection === 'company' &&
+        !args.targetCompany &&
+        (!!resp.error ||
+          !Array.isArray(resp.data) ||
+          resp.data.length === 0);
+      if (fallbackCompanyList) {
+        resp = await handlePull('list-master', new Map([['collection', 'company']]));
+      }
       if (resp.error) {
         return {
           isError: true,
