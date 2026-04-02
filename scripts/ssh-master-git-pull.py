@@ -13,6 +13,8 @@ Optional:
   set EMILDA_SKIP_RESTART=1
   set EMILDA_UPDATE_STARTUP_VBS=1   rewrite Startup\\start-mcp-server.vbs to run repo start-mcp-server.bat (align with git path)
 
+Restart uses Win32_Process.Create (not Start-Process): OpenSSH on Windows often kills session children when the SSH channel closes.
+
 Security: Do not commit .env or secrets to GitHub. If they were pushed, remove from repo history and rotate keys.
 Repo: https://github.com/safder2000/tallymcp
 """
