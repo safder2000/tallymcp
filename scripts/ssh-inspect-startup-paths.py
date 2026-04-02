@@ -45,9 +45,9 @@ Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
 foreach ($p in @(3000, 9000)) {
   $c = Get-NetTCPConnection -State Listen -LocalPort $p -ErrorAction SilentlyContinue | Select-Object -First 1
   if ($c) {
-    $pid = $c.OwningProcess
-    $line = (Get-CimInstance Win32_Process -Filter "ProcessId=$pid" -ErrorAction SilentlyContinue).CommandLine
-    Write-Host "Port $p PID $pid : $line"
+    $ownPid = $c.OwningProcess
+    $line = (Get-CimInstance Win32_Process -Filter "ProcessId=$ownPid" -ErrorAction SilentlyContinue).CommandLine
+    Write-Host "Port $p PID $ownPid : $line"
   }
 }
 

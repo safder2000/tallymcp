@@ -11,6 +11,7 @@ Optional:
   set EMILDA_GIT_URL=https://github.com/safder2000/tallymcp.git
   set EMILDA_TRY_WINGET_GIT=1                   (try winget install Git.Git if git missing)
   set EMILDA_SKIP_RESTART=1
+  set EMILDA_UPDATE_STARTUP_VBS=1   rewrite Startup\\start-mcp-server.vbs to run repo start-mcp-server.bat (align with git path)
 
 Security: Do not commit .env or secrets to GitHub. If they were pushed, remove from repo history and rotate keys.
 Repo: https://github.com/safder2000/tallymcp
@@ -65,7 +66,7 @@ $root = '{r}'
 Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue | ForEach-Object {{
   $cl = $_.CommandLine
   if ($null -eq $cl) {{ return }}
-  if ($cl -match 'server\\.mjs' -and ($cl -match 'tally-mcp' -or $cl -match [regex]::Escape($root))) {{
+  if ($cl -match 'server\\.mjs') {{
     Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
     Write-Output ('KILLED_PID=' + $_.ProcessId)
   }}
@@ -191,6 +192,26 @@ Write-Output 'GIT_OK'
             print("Wrote", bat_path)
         finally:
             sftp.close()
+
+        upd_vbs = os.environ.get("EMILDA_UPDATE_STARTUP_VBS", "").strip().lower()
+        if upd_vbs in ("1", "true", "yes"):
+            bat_for_vbs = f"{git_dir_bs}\\start-mcp-server.bat"
+            vbs_body = (
+                'Set WshShell = CreateObject("WScript.Shell")\r\n'
+                f'WshShell.Run """{bat_for_vbs}""", 0, False\r\n'
+            )
+            ps_vbs = (
+                "$dest = Join-Path $env:APPDATA 'Microsoft\\Windows\\Start Menu\\Programs\\Startup\\start-mcp-server.vbs'\n"
+                "$content = @'\n"
+                + vbs_body
+                + "'@\n"
+                "Set-Content -LiteralPath $dest -Value $content -Encoding ASCII\n"
+                "Write-Output ('WROTE_STARTUP_VBS=' + $dest)\n"
+            )
+            print("--- Update Startup start-mcp-server.vbs → git bat ---")
+            vout = run_ps_encoded(client, ps_vbs, timeout=60)
+            for ln in vout.splitlines():
+                print(" ", ln.strip())
 
         if os.environ.get("EMILDA_SKIP_RESTART", "").strip() not in ("1", "true", "yes"):
             restart_mcp_repo_root(client, git_dir_bs)
