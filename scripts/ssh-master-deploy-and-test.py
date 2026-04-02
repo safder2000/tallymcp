@@ -149,9 +149,16 @@ if (-not (Test-Path -LiteralPath $srv)) {{
   Write-Output 'START_SKIPPED_NO_SERVER_MJS'
   exit 0
 }}
-$arg = '"' + $srv + '"'
-$p = Start-Process -FilePath 'node.exe' -ArgumentList $arg -WorkingDirectory $dir -WindowStyle Hidden -PassThru
-Write-Output ('STARTED_PID=' + $p.Id)
+$cmdLine = 'node.exe "' + $srv + '"'
+$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{{
+  CommandLine = $cmdLine
+  CurrentDirectory = $dir
+}}
+if ($r.ReturnValue -ne 0) {{
+  Write-Output ('WMI_CREATE_FAILED=' + $r.ReturnValue)
+  exit 0
+}}
+Write-Output ('STARTED_PID=' + $r.ProcessId)
 """
     print("--- Restart MCP ---")
     out = run_ps_encoded(client, ps, timeout=90)

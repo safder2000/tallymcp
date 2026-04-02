@@ -77,14 +77,20 @@ if (-not (Test-Path -LiteralPath $srv)) {{
   Write-Output 'START_SKIPPED_NO_DIST_SERVER'
   exit 0
 }}
-# Absolute path — relative dist\\server.mjs can resolve from the wrong cwd over SSH.
-$errLog = Join-Path $root 'mcp-stderr.log'
-$p = Start-Process -FilePath 'node.exe' -ArgumentList $srv -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardError $errLog -PassThru
-Write-Output ('STARTED_PID=' + $p.Id)
+# Win32_Process.Create survives SSH disconnect; Start-Process children are often killed with the session.
+$cmdLine = 'node.exe "' + $srv + '"'
+$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{{
+  CommandLine = $cmdLine
+  CurrentDirectory = $root
+}}
+if ($r.ReturnValue -ne 0) {{
+  Write-Output ('WMI_CREATE_FAILED=' + $r.ReturnValue)
+  exit 0
+}}
+Write-Output ('STARTED_PID=' + $r.ProcessId)
 Start-Sleep -Seconds 2
-if (-not (Get-Process -Id $p.Id -ErrorAction SilentlyContinue)) {{
+if (-not (Get-Process -Id $r.ProcessId -ErrorAction SilentlyContinue)) {{
   Write-Output 'NODE_EXITED_EARLY'
-  if (Test-Path -LiteralPath $errLog) {{ Get-Content -LiteralPath $errLog -ErrorAction SilentlyContinue }}
 }}
 """
     print("--- Restart MCP (repo root dist\\server.mjs) ---")
