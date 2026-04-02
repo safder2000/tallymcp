@@ -201,13 +201,59 @@ async function main() {
 
   console.log('--- Connected: MCP session OK ---\n');
 
-  // 1) Companies in Tally
-  console.log('1) list-master (company)');
-  let r = await callTool(token, sessionId, 'list-master', tc({ collection: 'company' }));
+  // 1) ALL companies — must NOT pass targetCompany (otherwise Tally often returns only one row)
+  console.log('1) list-master (company) — no targetCompany (full discovery)');
+  let r = await callTool(token, sessionId, 'list-master', { collection: 'company' });
   console.log(`   isError=${r.isError} status=${r.status}`);
   console.log(`   ${r.text.slice(0, 800)}${r.text.length > 800 ? '…' : ''}\n`);
 
-  // 2) Ledgers — pick first for “recent activity” probe
+  const companyNames = [];
+  if (!r.isError && r.text) {
+    const lines = r.text.trim().split(/\r?\n/).filter(Boolean);
+    const start = lines[0]?.toLowerCase().includes('name') ? 1 : 0;
+    for (let i = start; i < lines.length; i++) {
+      const name = lines[i].split('\t')[0]?.trim();
+      if (name) companyNames.push(name);
+    }
+  }
+  console.log(`   → parsed company count: ${companyNames.length}`);
+  if (companyNames.length) {
+    console.log(
+      `   → sample: ${companyNames.slice(0, 5).map((n) => `"${n}"`).join(', ')}${companyNames.length > 5 ? ', …' : ''}\n`,
+    );
+  } else {
+    console.log('   (no company names parsed — multi-company checks skipped)\n');
+  }
+
+  // 1b) Same company with explicit targetCompany (should narrow to context; sanity check)
+  if (companyNames.length >= 1) {
+    const one = companyNames[0];
+    const short = one.length > 60 ? `${one.slice(0, 60)}…` : one;
+    console.log(`1b) list-master (company) with targetCompany="${short}" (expect ≤ full list)`);
+    r = await callTool(token, sessionId, 'list-master', {
+      collection: 'company',
+      targetCompany: one,
+    });
+    console.log(`   isError=${r.isError}`);
+    console.log(`   ${r.text.slice(0, 400)}${r.text.length > 400 ? '…' : ''}\n`);
+  }
+
+  // 1c) Ledgers scoped to second company if present (proves per-company data path)
+  if (companyNames.length >= 2) {
+    const c2 = companyNames[1];
+    const c2s = c2.length > 70 ? `${c2.slice(0, 70)}…` : c2;
+    console.log(`1c) list-master (ledger) for second company only — "${c2s}"`);
+    r = await callTool(token, sessionId, 'list-master', {
+      collection: 'ledger',
+      targetCompany: c2,
+    });
+    console.log(`   isError=${r.isError}`);
+    console.log(`   first 300 chars: ${r.text.slice(0, 300)}…\n`);
+  } else if (companyNames.length === 1) {
+    console.log('1c) (only one company in Tally — skipped second-company ledger check)\n');
+  }
+
+  // 2) Ledgers — pick first for “recent activity” probe (default company from env or Tally)
   console.log('2) list-master (ledger) — first name for ledger-account');
   r = await callTool(token, sessionId, 'list-master', tc({ collection: 'ledger' }));
   let firstLedger = '';
