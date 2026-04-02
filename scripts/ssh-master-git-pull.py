@@ -77,7 +77,9 @@ if (-not (Test-Path -LiteralPath $srv)) {{
   Write-Output 'START_SKIPPED_NO_DIST_SERVER'
   exit 0
 }}
-$p = Start-Process -FilePath 'node.exe' -ArgumentList 'dist\\server.mjs' -WorkingDirectory $root -WindowStyle Hidden -PassThru
+# Use absolute path to server.mjs — on some sessions relative "dist\\server.mjs" resolves from wrong cwd.
+$arg = '"' + $srv + '"'
+$p = Start-Process -FilePath 'node.exe' -ArgumentList $arg -WorkingDirectory $root -WindowStyle Hidden -PassThru
 Write-Output ('STARTED_PID=' + $p.Id)
 """
     print("--- Restart MCP (repo root dist\\server.mjs) ---")
@@ -178,11 +180,12 @@ Write-Output 'GIT_OK'
             return 6
 
         # --- start-mcp-server.bat at repo root (for manual double-click) ---
+        srv_js = f"{git_dir_bs}\\dist\\server.mjs"
         bat = (
             "@echo off\r\n"
             f'cd /d "{git_dir_bs}"\r\n'
             "echo Tally MCP from git repo...\r\n"
-            "node dist/server.mjs\r\n"
+            f'node "{srv_js}"\r\n'
         )
         sftp = client.open_sftp()
         try:

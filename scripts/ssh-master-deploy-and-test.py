@@ -144,11 +144,13 @@ Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyCon
 }}
 Start-Sleep -Seconds 2
 $dir = Join-Path $kit 'tally-mcp'
-if (-not (Test-Path -LiteralPath (Join-Path $dir 'dist\\server.mjs'))) {{
+$srv = Join-Path $dir 'dist\\server.mjs'
+if (-not (Test-Path -LiteralPath $srv)) {{
   Write-Output 'START_SKIPPED_NO_SERVER_MJS'
   exit 0
 }}
-$p = Start-Process -FilePath 'node.exe' -ArgumentList 'dist\\server.mjs' -WorkingDirectory $dir -WindowStyle Hidden -PassThru
+$arg = '"' + $srv + '"'
+$p = Start-Process -FilePath 'node.exe' -ArgumentList $arg -WorkingDirectory $dir -WindowStyle Hidden -PassThru
 Write-Output ('STARTED_PID=' + $p.Id)
 """
     print("--- Restart MCP ---")
