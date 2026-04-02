@@ -77,10 +77,15 @@ if (-not (Test-Path -LiteralPath $srv)) {{
   Write-Output 'START_SKIPPED_NO_DIST_SERVER'
   exit 0
 }}
-# Use absolute path to server.mjs — on some sessions relative "dist\\server.mjs" resolves from wrong cwd.
-$arg = '"' + $srv + '"'
-$p = Start-Process -FilePath 'node.exe' -ArgumentList $arg -WorkingDirectory $root -WindowStyle Hidden -PassThru
+# Absolute path — relative dist\\server.mjs can resolve from the wrong cwd over SSH.
+$errLog = Join-Path $root 'mcp-stderr.log'
+$p = Start-Process -FilePath 'node.exe' -ArgumentList $srv -WorkingDirectory $root -WindowStyle Hidden -RedirectStandardError $errLog -PassThru
 Write-Output ('STARTED_PID=' + $p.Id)
+Start-Sleep -Seconds 2
+if (-not (Get-Process -Id $p.Id -ErrorAction SilentlyContinue)) {{
+  Write-Output 'NODE_EXITED_EARLY'
+  if (Test-Path -LiteralPath $errLog) {{ Get-Content -LiteralPath $errLog -ErrorAction SilentlyContinue }}
+}}
 """
     print("--- Restart MCP (repo root dist\\server.mjs) ---")
     out = run_ps_encoded(client, ps, timeout=120)
