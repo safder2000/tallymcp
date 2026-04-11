@@ -295,6 +295,35 @@ function extractReport(reportConfig, reportInputParams) {
                 retval.error = errorMessage;
                 return;
             }
+            // "List of Companies" collection export uses <COMPANY NAME="...">, not DATA/ROW/F01.
+            if (reportConfig.name === 'list-of-companies') {
+                const parseStringLoose = (iStr) => {
+                    iStr = utility.String.unescapeHTML(iStr);
+                    iStr = iStr.replace(/&#\d+;/g, '');
+                    return iStr;
+                };
+                const seen = new Set();
+                const re = /<COMPANY\b[^>]*\bNAME="([^"]*)"/gi;
+                let m;
+                while ((m = re.exec(respContent)) !== null) {
+                    const n = parseStringLoose(m[1]).trim();
+                    if (n)
+                        seen.add(n);
+                }
+                const re2 = /<COMPANY\b[^>]*\bNAME='([^']*)'/gi;
+                while ((m = re2.exec(respContent)) !== null) {
+                    const n = parseStringLoose(m[1]).trim();
+                    if (n)
+                        seen.add(n);
+                }
+                retval.data = Array.from(seen).map((name) => ({ name }));
+                if (retval.data.length === 0) {
+                    retval.error =
+                        'List of Companies: no <COMPANY NAME="..."> in Tally response. Raw (first 500 chars): ' +
+                            respContent.substring(0, 500);
+                }
+                return;
+            }
             let xmlParser = new XMLParser({
                 parseTagValue: false,
                 isArray(tagName, jPath, isLeafNode, isAttribute) {
